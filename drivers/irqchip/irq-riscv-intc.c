@@ -27,6 +27,9 @@ static asmlinkage void riscv_intc_irq(struct pt_regs *regs)
 		panic("unexpected interrupt cause");
 
 	switch (cause) {
+	case RV_IRQ_THREAD_MIGRATION:
+		inbound_migration(regs);
+		break;
 #ifdef CONFIG_SMP
 	case RV_IRQ_SOFT:
 		/*

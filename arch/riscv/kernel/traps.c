@@ -70,7 +70,8 @@ void do_trap(struct pt_regs *regs, int signo, int code, unsigned long addr)
 		__show_regs(regs);
 	}
 
-	force_sig_fault(signo, code, (void __user *)addr);
+	if (!outbound_migration(regs, signo, code, addr))
+		force_sig_fault(signo, code, (void __user *)addr);
 }
 
 static void do_trap_error(struct pt_regs *regs, int signo, int code,

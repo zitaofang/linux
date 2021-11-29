@@ -616,3 +616,58 @@ void __init sbi_init(void)
 
 	riscv_set_ipi_ops(&sbi_ipi_ops);
 }
+
+// Implementation of thread migration
+#define SBI_MIGRATE_QUEUE_DEPTH 5
+static DEFINE_SEMAPHORE(migrate_sem);
+static int migrate_sem_inited = 0;
+static DECLARE_WAIT_QUEUE_HEAD(migrated_queue);
+static struct task_struct* wakeup_thread;
+
+// Migrate the thread to an accelerator core. This function will return when this is not a migration 
+// triggering trap or after the accelerator returns control.
+int outbound_migration(struct pt_regs *regs, int signo, int code, unsigned long addr) {
+	if (unlikely(!migrate_sem_inited)) {
+		sema_init(&migrate_sem, SBI_MIGRATE_QUEUE_DEPTH);
+		migrate_sem_inited = true;
+	}
+	if (code != ILL_ILLTRP || signo != SIGILL) return 0;
+	unsigned int inst;
+	copy_from_user(&inst, addr, 1);
+	// For the purpose of this project, we only check for the custom instruction fields
+	const unsigned int custom_opcode[] = { 0b0001011, 0b0101011, 0b1011011, 0b1111011, 0b1010111 };
+	unsigned int opcode = inst | 0x7f;
+	unsigned int funct3 = (inst >> 7) | 0x7;
+	for (size_t i = 0; i < 5; i++) {
+		if (custom_opcode[i] == opcode) goto handler;
+	}
+	// Check V-extension load and store
+	const unsigned int vector_mem_funct3[] = { 0b000, 0b101, 0b110, 0b111 };
+	if (opcode == 0b0000111 || opcode = 0b0100111) {
+		for (size_t i = 0; i < 4; i++)
+			if (vector_mem_funct3[i] == funct3)
+				goto handler;
+	}
+	return 0;
+handler:
+	down(migrate_sem);
+	sys_mlockall(MCL_CURRENT);
+	sbi_ecall(SBI_EXT_MIGRATION, 0, csr_read(CSR_SATP), current, regs, 0, 0, 0, 0);
+	wait_event(migrated_queue, wakeup_thread == current);
+	return 1;
+}
+
+void inbound_migration(struct pt_regs *regs) {
+	struct pt_regs *old_regs = set_irq_regs(regs);
+	irq_enter();
+	mb();
+	if (unlikely(!migrate_sem_inited)) 
+		panic("Thread migration: Migration interrupt received before migration semaphore is initialized");
+	up(migrate_sem);
+	sbi_ecall(SBI_EXT_MIGRATION, 1, regs, 0, 0, 0, 0, 0, 0);
+	wakeup_thread = csr_read(CSR_TVAL);
+	wakeup_sync(migrated_queue);
+	mb();
+	irq_exit();
+	set_irq_regs(old_regs);
+}

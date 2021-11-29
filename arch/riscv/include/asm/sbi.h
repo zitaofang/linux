@@ -153,4 +153,9 @@ int sbi_err_map_linux_errno(int err);
 static inline int sbi_remote_fence_i(const unsigned long *hart_mask) { return -1; }
 static inline void sbi_init(void) {}
 #endif /* CONFIG_RISCV_SBI */
+
+// Define thread migration related functions and macros
+#define RV_IRQ_THREAD_MIGRATION 16
+int outbound_migration(struct pt_regs *regs, int signo, int code, unsigned long addr);
+void inbound_migration(struct pt_regs *regs);
 #endif /* _ASM_RISCV_SBI_H */
