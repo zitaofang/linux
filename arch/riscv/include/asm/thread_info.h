@@ -110,4 +110,7 @@ struct thread_info {
 	(_TIF_SYSCALL_TRACE | _TIF_SYSCALL_TRACEPOINT | _TIF_SYSCALL_AUDIT | \
 	 _TIF_SECCOMP)
 
+// Migration related code
+extern unsigned long migrant_reg_addr;
+
 #endif /* _ASM_RISCV_THREAD_INFO_H */

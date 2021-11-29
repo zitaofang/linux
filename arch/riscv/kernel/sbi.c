@@ -650,9 +650,11 @@ int outbound_migration(struct pt_regs *regs, int signo, int code, unsigned long 
 	}
 	return 0;
 handler:
+	// Save register address before the next context switch into userspace
+	unsigned long reg_saved = migrant_reg_addr;
 	down(migrate_sem);
 	sys_mlockall(MCL_CURRENT);
-	sbi_ecall(SBI_EXT_MIGRATION, 0, csr_read(CSR_SATP), current, regs, 0, 0, 0, 0);
+	sbi_ecall(SBI_EXT_MIGRATION, 0, csr_read(CSR_SATP), current, reg_saved, 0, 0, 0, 0);
 	wait_event(migrated_queue, wakeup_thread == current);
 	return 1;
 }
@@ -664,9 +666,9 @@ void inbound_migration(struct pt_regs *regs) {
 	if (unlikely(!migrate_sem_inited)) 
 		panic("Thread migration: Migration interrupt received before migration semaphore is initialized");
 	up(migrate_sem);
-	sbi_ecall(SBI_EXT_MIGRATION, 1, regs, 0, 0, 0, 0, 0, 0);
+	sbi_ecall(SBI_EXT_MIGRATION, 1, current, 0, 0, 0, 0, 0, 0);
 	wakeup_thread = csr_read(CSR_TVAL);
-	wakeup_sync(migrated_queue);
+	wakeup_sync(migrated_queue);`
 	mb();
 	irq_exit();
 	set_irq_regs(old_regs);
