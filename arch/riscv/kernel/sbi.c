@@ -666,7 +666,7 @@ void inbound_migration(struct pt_regs *regs) {
 	if (unlikely(!migrate_sem_inited)) 
 		panic("Thread migration: Migration interrupt received before migration semaphore is initialized");
 	up(migrate_sem);
-	sbi_ecall(SBI_EXT_MIGRATION, 1, current, 0, 0, 0, 0, 0, 0);
+	sbi_ecall(SBI_EXT_MIGRATION, 1, 0, 0, 0, 0, 0, 0, 0);
 	wakeup_thread = csr_read(CSR_TVAL);
 	wakeup_sync(migrated_queue);`
 	mb();
