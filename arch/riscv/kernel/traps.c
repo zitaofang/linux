@@ -27,6 +27,8 @@ int show_unhandled_signals = 1;
 
 static DEFINE_SPINLOCK(die_lock);
 
+int outbound_migration(struct pt_regs *regs, int signo, int code, unsigned long addr);
+
 void die(struct pt_regs *regs, const char *str)
 {
 	static int die_counter;
