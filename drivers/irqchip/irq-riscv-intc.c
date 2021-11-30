@@ -19,6 +19,8 @@
 
 static struct irq_domain *intc_domain;
 
+void inbound_migration(struct pt_regs *regs);
+
 static asmlinkage void riscv_intc_irq(struct pt_regs *regs)
 {
 	unsigned long cause = regs->cause & ~CAUSE_IRQ_FLAG;
@@ -27,7 +29,7 @@ static asmlinkage void riscv_intc_irq(struct pt_regs *regs)
 		panic("unexpected interrupt cause");
 
 	switch (cause) {
-	case RV_IRQ_THREAD_MIGRATION:
+	case IRQ_THREAD_MIGRATE:
 		inbound_migration(regs);
 		break;
 #ifdef CONFIG_SMP

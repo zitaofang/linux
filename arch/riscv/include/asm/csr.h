@@ -63,6 +63,7 @@
 #define IRQ_M_TIMER		7
 #define IRQ_S_EXT		9
 #define IRQ_M_EXT		11
+#define IRQ_THREAD_MIGRATE 16
 
 /* Exception causes */
 #define EXC_INST_MISALIGNED	0
