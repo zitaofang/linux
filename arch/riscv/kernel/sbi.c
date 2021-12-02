@@ -639,16 +639,23 @@ int outbound_migration(struct pt_regs *regs, int signo, int code, unsigned long 
 	unsigned int custom_opcode[] = { 0b0001011, 0b0101011, 0b1011011, 0b1111011, 0b1010111 };
 	unsigned int vector_mem_funct3[] = { 0b000, 0b101, 0b110, 0b111 };
 
+	//printk("INSIDE OUTBOUND MIGRATION\n");
+
 	if (unlikely(!migrate_sem_inited)) {
 		sema_init(&migrate_sem, SBI_MIGRATE_QUEUE_DEPTH);
 		migrate_sem_inited = true;
 	}
-	if (code != ILL_ILLTRP || signo != SIGILL) return 0;
-	if (copy_from_user(&inst, (const void *) addr, 1))
+	if (code != ILL_ILLTRP && signo != SIGILL) {
+		//printk("code is %x, ILL_ILLTRP is %x and signo is %d, SIGILL is %d\n", code, ILL_ILLTRP, signo, SIGILL);
+		return 0;
+	}
+	if (copy_from_user(&inst, (const void *) addr, 2))
 		panic("Thread migration: failed to read PC value during a illegal instruction trap\n");
 	// For the purpose of this project, we only check for the custom instruction fields
-	opcode = inst | 0x7f;
-	funct3 = (inst >> 7) | 0x7;
+ 	//printk("illegal instruction bits: 0x%x\n", inst);
+	opcode = inst & 0x7f;
+	//printk("opcode: %x\n", opcode);
+	funct3 = (inst >> 12) & 0x7;
 	for (i = 0; i < 5; i++) {
 		if (custom_opcode[i] == opcode) goto handler;
 	}
@@ -660,11 +667,14 @@ int outbound_migration(struct pt_regs *regs, int signo, int code, unsigned long 
 	}
 	return 0;
 handler:
+	//printk("GETTING INSIDE HANDER\n");
 	// Save register address before the next context switch into userspace
 	down(&migrate_sem);
 	sys_mlockall(MCL_CURRENT);
 	sbi_ecall(SBI_EXT_MIGRATION, 0, csr_read(CSR_SATP), (unsigned long) current, (unsigned long) regs, 0, 0, 0);
+	//printk("GETTING BACK FROM ECALL\n");
 	wait_event(migrated_queue, wakeup_thread == current);
+	//printk("DONE WITH WAIT_EVENT\n");
 	return 1;
 }
 
@@ -674,7 +684,7 @@ void inbound_migration(struct pt_regs *regs) {
 	mb();
 	if (unlikely(!migrate_sem_inited)) 
 		panic("Thread migration: Migration interrupt received before migration semaphore is initialized\n");
-	sbi_ecall(SBI_EXT_MIGRATION, 1, 0, 0, 0, 0, 0, 0);
+	//sbi_ecall(SBI_EXT_MIGRATION, 1, 0, 0, 0, 0, 0, 0);
 	wakeup_thread = (struct task_struct *) csr_read(CSR_TVAL);
 	up(&migrate_sem);
 	mb();
