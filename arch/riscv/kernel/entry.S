@@ -301,6 +301,10 @@ restore_all:
 	csrw CSR_STATUS, a0
 	csrw CSR_EPC, a2
 
+        li t0,3
+        slli t0,t0,9
+        csrs CSR_STATUS,t0
+
 	REG_L x1,  PT_RA(sp)
 	REG_L x3,  PT_GP(sp)
 	REG_L x4,  PT_TP(sp)
