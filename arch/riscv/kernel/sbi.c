@@ -671,7 +671,8 @@ handler:
 	// Save register address before the next context switch into userspace
 	down(&migrate_sem);
 	sys_mlockall(MCL_CURRENT);
-	sbi_ecall(SBI_EXT_MIGRATION, 0, csr_read(CSR_SATP), (unsigned long) current, (unsigned long) regs, 0, 0, 0);
+	sbi_ecall(SBI_EXT_MIGRATION, 0, csr_read(CSR_SATP), (unsigned long) current, (unsigned long) regs,
+		(unsigned long) &(current->thread.vstate), 0, 0);
 	//printk("GETTING BACK FROM ECALL\n");
 	wait_event(migrated_queue, wakeup_thread == current);
 	//printk("DONE WITH WAIT_EVENT\n");
